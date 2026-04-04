@@ -2,6 +2,19 @@
 
 Challenge materials are in `challenge/`.
 
+## Team notebook
+
+A standalone exploratory notebook is available at `team-piqasso/four-parameter-optimizer.ipynb`.
+
+It demonstrates a rudimentary `dynamiqs`-based optimizer for the four real control knobs underlying the complex cat-stabilization parameters:
+
+- `Re(g_2)`
+- `Im(g_2)`
+- `Re(epsilon_d)`
+- `Im(epsilon_d)`
+
+The notebook estimates proxy logical lifetimes, optimizes toward a target bias, and plots reward, parameter trajectories, sampled control points, and final decay curves.
+
 ## Environment setup
 
 This repository now includes a local Python `3.11` environment setup that works with the notebook in `challenge/1-challenge.ipynb`.
