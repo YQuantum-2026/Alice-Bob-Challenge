@@ -1,3 +1,5 @@
+#MODIFIED FROM 1-challenge.ipynb
+
 import dynamiqs as dq
 import jax.numpy as jnp
 from matplotlib import pyplot as plt
