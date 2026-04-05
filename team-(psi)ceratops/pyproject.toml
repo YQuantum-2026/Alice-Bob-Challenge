@@ -1,0 +1,74 @@
+[project]
+name = "yquantum-2026"
+version = "0.1.0"
+description = "Cat qubit optimization framework for YQuantum 2026 Alice & Bob Challenge"
+requires-python = ">=3.11"
+readme = "README.md"
+dependencies = [
+    "numpy>=1.26,<2.0",
+    "scipy>=1.12,<1.15",
+    "matplotlib>=3.8,<3.11",
+    "dynamiqs>=0.3,<0.4",
+    "jax>=0.4.30,<0.5",
+    "jaxlib>=0.4.30,<0.5",
+    "cmaes==0.11.1",
+    "optax>=0.2,<0.3",
+    "scikit-optimize>=0.10,<0.11",
+    "tqdm>=4.60,<5",
+    "python-dotenv>=1.0,<2",
+]
+
+[project.optional-dependencies]
+dev = [
+    "ruff>=0.4",
+    "pytest>=8.0,<9",
+    "black>=24.0",
+]
+notebooks = [
+    "jupyter>=1.0,<2",
+    "jupyterlab>=4.0,<5",
+    "plotly>=5.0,<6",
+    "ipywidgets>=8.0,<9",
+    "nbstripout>=0.7,<1",
+]
+
+[tool.black]
+line-length = 88
+
+[tool.ruff]
+line-length = 88
+target-version = "py311"
+extend-exclude = ["notebooks", "Alice-Bob-Challenge-main"]
+
+[tool.ruff.lint]
+select = [
+    "E",    # pycodestyle errors
+    "F",    # pyflakes
+    "I",    # isort
+    "UP",   # pyupgrade
+    "B",    # flake8-bugbear
+    "SIM",  # flake8-simplify
+]
+ignore = [
+    "E501",   # line too long (handled by formatter)
+    "B905",   # zip strict (py310+)
+    "SIM108", # ternary operator
+]
+
+[tool.ruff.lint.isort]
+known-first-party = ["src"]
+
+[tool.ruff.format]
+docstring-code-format = true
+
+[tool.pytest.ini_options]
+testpaths = ["tests"]
+markers = [
+    "slow: marks tests as slow (deselect with '-m \"not slow\"')",
+]
+
+[tool.mypy]
+python_version = "3.11"
+warn_return_any = true
+warn_unused_configs = true
+ignore_missing_imports = true

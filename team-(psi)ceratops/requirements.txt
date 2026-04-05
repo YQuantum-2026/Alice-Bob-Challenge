@@ -1,0 +1,44 @@
+# Install: uv pip install -r requirements.txt (recommended)
+#      or: pip install -r requirements.txt
+#
+# NOTE: For fully reproducible installs, generate a lockfile:
+#   pip-compile requirements.txt -o requirements-lock.txt
+
+# Core Scientific Stack
+# NOTE: Pinned <2.0 because scikit-optimize 0.10 uses deprecated np.int
+# aliases removed in NumPy 2.0. Remove this pin if scikit-optimize is
+# replaced with a maintained alternative (optuna, scikit-optimize-fork).
+numpy>=1.26,<2.0
+scipy>=1.12,<1.15
+matplotlib>=3.8,<3.11
+
+# Quantum Simulation (Alice & Bob Challenge)
+dynamiqs>=0.5,<0.6
+jax>=0.4.30,<0.5
+jaxlib>=0.4.30,<0.5
+qiskit>=1.0,<2.1
+qiskit-alice-bob-provider>=0.8,<1
+
+# Optimization
+# NOTE: cmaes pinned exactly — we access private attrs (_sigma, _mean).
+cmaes==0.11.1
+optax>=0.2,<0.3
+scikit-optimize>=0.10,<0.11
+
+# Notebooks & Visualization
+jupyter>=1.0,<2
+jupyterlab>=4.0,<5
+plotly>=5.0,<6
+ipywidgets>=8.0,<9
+
+# Code Quality & Formatting
+black>=24.0
+ruff>=0.4
+
+# Testing
+pytest>=8.0,<9
+
+# Utilities
+python-dotenv>=1.0,<2
+tqdm>=4.60,<5
+nbstripout>=0.7,<1
