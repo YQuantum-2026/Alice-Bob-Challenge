@@ -1,0 +1,58 @@
+# Python
+__pycache__/
+*.py[cod]
+*$py.class
+*.egg-info/
+dist/
+build/
+*.egg
+
+# Virtual Environments
+.venv/
+venv/
+env/
+ENV/
+
+# Jupyter Notebooks
+.ipynb_checkpoints/
+
+# Environment Variables & Secrets
+.env
+.env.local
+*.pem
+
+# IDE & Editor
+.vscode/
+.idea/
+*.swp
+*.swo
+*~
+.DS_Store
+Thumbs.db
+.DS_Store
+
+# Papers & Resources
+resources/
+
+# Documentation
+docs/
+
+# Testing & Coverage
+.pytest_cache/
+.coverage
+htmlcov/
+.mypy_cache/
+.ruff_cache/
+
+# Results (machine-specific run data)
+results/*.json
+
+# Distribution & Build
+*.whl
+*.tar.gz
+
+# Figures (generated outputs)
+figures/*.png
+figures/*.mp4
+figures/*.pdf
+figures/*.svg
