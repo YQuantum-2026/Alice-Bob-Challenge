@@ -38,7 +38,7 @@ matplotlib.use("Agg")          # no display needed — saves to file
 import matplotlib.pyplot as plt
 import matplotlib.gridspec as gridspec
 
-from Scratch import compute_vals
+from Scratch_nontuneable import compute_vals
 
 # ── Constants ──────────────────────────────────────────────────────────────────
 RATIO_TARGET = 320.0
@@ -50,8 +50,8 @@ BETA_END     = 12.0
 PARAM_BOUNDS = np.array([
     [0.0,8.0],   # eps_d_real
     [0.0,8.0],   # eps_d_im
-    [0.0,8.0],   # g2_re
-    [0.0,8.0],   # g2_im
+    [-1.0,1.0],   # g2_re
+    [-1.0,1.0],   # g2_im
 ], dtype=np.float64)
 PARAM_DIM  = PARAM_BOUNDS.shape[0]
 PARAM_SPAN = PARAM_BOUNDS[:, 1] - PARAM_BOUNDS[:, 0]
@@ -473,7 +473,7 @@ class PPO:
     def train(
         self,
         env:           QuantumEnv,
-        n_iterations:  int = 30,
+        n_iterations:  int = 50,
         rollout_steps: int = 32,
         n_verify:      int = 3,    # real sims per main-phase iter (targeted)
         plot_path:     str = "ppo_progress.png",

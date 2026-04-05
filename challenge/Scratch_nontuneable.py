@@ -11,7 +11,7 @@ from scipy.optimize import curve_fit
 from scipy.optimize import least_squares
 
 
-def evolve_state(initial_state, tfinal, eps_d_real: float, eps_d_im: float, g2_re: float, g2_im: float, delta_d: float):
+def evolve_state(initial_state, tfinal, eps_d_real: float, eps_d_im: float, g2_re: float, g2_im: float):
     na = 15 # Hilbert space dimension
     nb = 5
     a = dq.tensor(dq.destroy(na), dq.eye(nb)) # annihilaiton operator
@@ -26,7 +26,7 @@ def evolve_state(initial_state, tfinal, eps_d_real: float, eps_d_im: float, g2_r
     kappa_2 = 4 * jnp.abs(g_2)**2/kappa_b
     alpha_estimate = jnp.sqrt(2/kappa_2 * (eps_2 - kappa_a/4))
 
-    H = jnp.conj(g_2) * a @ a @ b.dag() + g_2 * a.dag() @ a.dag() @ b - eps_d * b.dag() - jnp.conj(eps_d) * b + 0.025*dq.powm(a.dag()@a, 2) + delta_d*a.dag()@a
+    H = jnp.conj(g_2) * a @ a @ b.dag() + g_2 * a.dag() @ a.dag() @ b - eps_d * b.dag() - jnp.conj(eps_d) * b + 0.8*dq.powm(a.dag()@a, 2)
 
     loss_b = jnp.sqrt(kappa_b) * b
     loss_a = jnp.sqrt(kappa_a) * a
@@ -124,12 +124,12 @@ def compute_x_lifetime(ev_res):
 
     return Tx
 
-def compute_vals(eps_d_real: float, eps_d_im: float, g2_re: float, g2_im: float, delta_d: float):
-    ev_res_z = evolve_state("+z",50, eps_d_real, eps_d_im, g2_re, g2_im, delta_d)
+def compute_vals(eps_d_real: float, eps_d_im: float, g2_re: float, g2_im: float):
+    ev_res_z = evolve_state("+z",50, eps_d_real, eps_d_im, g2_re, g2_im)
     Tz = compute_z_lifetime(ev_res_z)
-    ev_res_x = evolve_state("+x",0.25, eps_d_real, eps_d_im, g2_re, g2_im, delta_d)
+    ev_res_x = evolve_state("+x",0.25, eps_d_real, eps_d_im, g2_re, g2_im)
     Tx = compute_x_lifetime(ev_res_x)
     return Tz,Tx
 
-print(compute_vals(4,0,1,0,-1.0))
+print(compute_vals(4,0,1,0))
 
