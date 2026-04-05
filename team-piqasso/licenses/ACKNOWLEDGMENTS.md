@@ -10,6 +10,8 @@ We specifically acknowledge:
 - Alice & Bob's `dynamiqs` quantum simulation package, which is used throughout the `team-piqasso` notebooks and scripts.
 - The overall cat-qubit stabilization setup, notation, and benchmarking context provided in the challenge materials.
 
+Generative AI was used in the coding of this repository.
+
 ### What was adapted in `team-piqasso`
 
 Within `team-piqasso`, the team created its own notebooks, scripts, plots, optimizer variants, and analysis on top of those upstream materials. That includes:
