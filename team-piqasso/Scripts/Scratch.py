@@ -26,7 +26,7 @@ def evolve_state(initial_state, tfinal, eps_d_real: float, eps_d_im: float, g2_r
     kappa_2 = 4 * jnp.abs(g_2)**2/kappa_b
     alpha_estimate = jnp.sqrt(2/kappa_2 * (eps_2 - kappa_a/4))
 
-    H = jnp.conj(g_2) * a @ a @ b.dag() + g_2 * a.dag() @ a.dag() @ b - eps_d * b.dag() - jnp.conj(eps_d) * b + 1.5*a.dag()@a + delta_d * g_2 * (a.dag() @ a @ b)
+    H = jnp.conj(g_2) * a @ a @ b.dag() + g_2 * a.dag() @ a.dag() @ b - eps_d * b.dag() - jnp.conj(eps_d) * b + delta_d * g_2 * (a.dag() @ a @ b)+jnp.conj(g_2)*delta_d*(a.dag() @ a @ b.dag())
 
     loss_b = jnp.sqrt(kappa_b) * b
     loss_a = jnp.sqrt(kappa_a) * a
@@ -136,7 +136,7 @@ print(compute_vals(4,0,1,0,-1.0))
 
 from pathlib import Path
 
-res = evolve_state("-z", 400, 4.1727,4.3427,-0.1420,0.3530,-0.1823)
+res = evolve_state("-z", 400, 1.9168,2.4595,0.3250,0.0388,-0.1681)
 storage_states = dq.ptrace(res.states, 0)
 
 gif = dq.plot.wigner_gif(storage_states)

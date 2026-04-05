@@ -53,3 +53,41 @@ OPTIMIZATION COMPLETE
   g2_re       : -0.1420
   g2_im       : 0.3530
   delta       : -0.1823
+  ---------------------------------
+  Fixed
+    ----------------------------------------------
+  PARAM_BOUNDS = np.array
+    [0.0,8.0],   # eps_d_real
+    [0.0,8.0],   # eps_d_im
+    [-1.0,1.0],   # g2_re
+    [-1.0,1.0],   # g2_im
+    [-1.0,1.0]    # delta
+
+OPTIMIZATION COMPLETE
+  Best reward : +4.053849
+  Tz          : 51.1872
+  Tx          : 0.157656
+  Tz/Tx       : 324.68  (target 320,  |err|=1.46%)
+  eps_d_real  : 6.8639
+  eps_d_im    : 6.0312
+  g2_re       : 0.8580
+  g2_im       : -0.6814
+  delta       : -0.0937
+
+PARAM_BOUNDS = np.array([
+    [0.0,8.0],   # eps_d_real
+    [0.0,8.0],   # eps_d_im
+    [0.0,8.0],   # g2_re
+    [-1.0,1.0],   # g2_im
+    [-1.0,1.0]    # delta
+]
+  OPTIMIZATION COMPLETE
+  Best reward : +4.605619
+  Tz          : 75.9349
+  Tx          : 0.229195
+  Tz/Tx       : 331.31  (target 320,  |err|=3.53%)
+  eps_d_real  : 1.9168
+  eps_d_im    : 2.4595
+  g2_re       : 0.3250
+  g2_im       : 0.0388
+  delta       : -0.1681
