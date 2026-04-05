@@ -72,6 +72,17 @@ N_EPOCHS      = 50
 SIGMA0        = 0.5
 RATIO_PENALTY = 8.0   # relative penalty weight for T_Z/T_X ratio constraint
 
+# ── Exponential reward coefficients ───────────────────────────────────────────
+# Reward = Re( A_TX·T_X  +  A_TZ·T_Z  +  A_EXP·exp(D_EXP·|η − η₀|) )
+# where η = T_Z/T_X  and  η₀ = TARGET_RATIO = 320.
+# All four constants are complex; only Re(·) is used in the scalar CMA-ES loss,
+# so the imaginary parts of A_TX/A_TZ vanish while those of D_EXP introduce an
+# oscillatory envelope in the penalty landscape.
+A_TX  = complex( 0.5,  0.0)   #  a  — weight on T_X
+A_TZ  = complex( 1/TARGET_RATIO, 0.0)  #  b  — weight on T_Z  (≈ 0.003125)
+A_EXP = complex(-8.0,  0.0)   #  c  — weight on exponential (negative ⟹ penalty)
+D_EXP = complex( 1.0,  0.0)   #  d  — exponent scale for ratio deviation
+
 # Control bounds: [eps_d, g_2]  (MHz)
 BOUNDS = np.array([
     [0.5, 8.0],   # eps_d — pump drive amplitude
@@ -86,9 +97,6 @@ b_op = dq.tensor(dq.eye(na), dq.destroy(nb))
 # Parity (logical-X) operator:  (-1)^n  in storage space
 parity_s  = (1j * jnp.pi * a_s.dag() @ a_s).expm()
 parity_op = dq.tensor(parity_s, dq.eye(nb))
-
-# Pre-computed a^2 operator (reused in every T_Z simulation)
-a2_op = dq.powm(a_op, 2)
 
 
 # ══════════════════════════════════════════════════════════════════════════════
@@ -215,25 +223,17 @@ def _measure_Tx_inner(H, jumps, psi0_x, alpha: float,
 def _measure_Tz_inner(H, jumps, ket_p, ket_m, alpha: float,
                       tfinal: float, n_pts: int) -> dict:
     """Run the T_Z simulation given a pre-built system."""
+    sz_s   = ket_p @ ket_p.dag() - ket_m @ ket_m.dag()
+    sz_op  = dq.tensor(sz_s, dq.eye(nb))
     psi0_z = dq.tensor(ket_p, dq.fock(nb, 0))
     tsave  = jnp.linspace(0.0, tfinal, n_pts)
-
-    res = dq.mesolve(
-        H,
-        jumps,
-        psi0_z,
-        tsave,
+    result = dq.mesolve(
+        H, jumps, psi0_z, tsave,
+        exp_ops=[sz_op],
         options=dq.Options(progress_meter=False),
-        exp_ops=[a2_op, a_op, a_op.dag(), a_op.dag() @ a_op],
     )
-    a2_exp   = res.expects[0, :]
-    a_exp    = res.expects[1, :]
-    adag_exp = res.expects[2, :]
-    num_exp  = jnp.maximum(res.expects[3, :].real, 1e-12)
-    phi  = jnp.angle(a2_exp) / 2
-    Xphi = 0.5 * (jnp.exp(1j * phi) * adag_exp + jnp.exp(-1j * phi) * a_exp) / jnp.sqrt(num_exp)
-    szt = np.array(jnp.real(Xphi))
-    ts  = np.array(res.tsave)
+    szt = np.array(result.expects[0, :].real)
+    ts  = np.array(tsave)
     if szt[-1] > 0.9 * szt[0]:
         Tz = 5.0 * tfinal
     else:
@@ -294,12 +294,8 @@ def measure_joint(eps_d: float, g2: float) -> dict:
     tx_window = float(np.clip(3.0 * tx_est, 0.3, 15.0))
     tz_window = float(np.clip(3.0 * tz_est, 50.0, 500.0))
 
-    # Run T_X and T_Z simulations concurrently — they are fully independent
-    with ThreadPoolExecutor(max_workers=2) as ex:
-        fut_x = ex.submit(_measure_Tx_inner, H, jumps, psi0_x, alpha, tx_window, 30)
-        fut_z = ex.submit(_measure_Tz_inner, H, jumps, ket_p, ket_m, alpha, tz_window, 50)
-        out_x = fut_x.result()
-        out_z = fut_z.result()
+    out_x = _measure_Tx_inner(H, jumps, psi0_x, alpha, tx_window, n_pts=30)
+    out_z = _measure_Tz_inner(H, jumps, ket_p, ket_m, alpha, tz_window, n_pts=50)
 
     Tx    = out_x["T_X"]
     Tz    = out_z["T_Z"]
@@ -329,14 +325,15 @@ def _eval_candidate(x: np.ndarray) -> dict:
         Tx        = out["T_X"]
         Tz        = out["T_Z"]
         ratio     = out["ratio"]
-        ratio_err = (ratio - TARGET_RATIO) / TARGET_RATIO
-        val       = (-(Tx + Tz / TARGET_RATIO) / 2.0
-                     + RATIO_PENALTY * ratio_err**2)
+        eta = ratio - TARGET_RATIO            # signed deviation from target
+        val = -float(np.real(
+            A_TX * Tx
+            + A_TZ * Tz
+            + A_EXP * np.exp(D_EXP * abs(eta))
+        ))
     except Exception:
         Tx, Tz, ratio, val = 0.0, 0.0, 0.0, 1e6
-        out = {"alpha": analytic_alpha(float(x[0]), float(x[1]))}
-    return {"T_X": Tx, "T_Z": Tz, "ratio": ratio, "x": x, "loss": val,
-            "alpha": out["alpha"]}
+    return {"T_X": Tx, "T_Z": Tz, "ratio": ratio, "x": x, "loss": val}
 
 
 def optimize_joint(
@@ -406,7 +403,7 @@ def optimize_joint(
         history["T_X"].append(bm["T_X"])
         history["T_Z"].append(bm["T_Z"])
         history["ratio"].append(bm["ratio"])
-        history["alpha"].append(bm["alpha"])
+        history["alpha"].append(analytic_alpha(float(bx[0]), float(bx[1])))
         history["eps_d"].append(float(bx[0]))
         history["g2"].append(float(bx[1]))
 
