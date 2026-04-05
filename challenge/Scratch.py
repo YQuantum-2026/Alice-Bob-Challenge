@@ -17,7 +17,7 @@ def evolve_state(initial_state, tfinal, eps_d_real: float, eps_d_im: float, g2_r
     a = dq.tensor(dq.destroy(na), dq.eye(nb)) # annihilaiton operator
     b = dq.tensor(dq.eye(na), dq.destroy(nb))
 
-    kappa_b = 10 # MHz
+    kappa_b = 50 # MHz
     eps_d = eps_d_real + 1j*eps_d_im
     g_2 = g2_re + 1j*g2_im # MHz
     kappa_a = 1 # MHz
