@@ -52,7 +52,7 @@ PARAM_BOUNDS = np.array([
     [0.0,8.0],   # eps_d_im
     [-1.0,1.0],   # g2_re
     [-1.0,1.0],   # g2_im
-    [-2.0,0.0]    # delta
+    [-1.0,1.0]    # delta
 ], dtype=np.float64)
 PARAM_DIM  = PARAM_BOUNDS.shape[0]
 PARAM_SPAN = PARAM_BOUNDS[:, 1] - PARAM_BOUNDS[:, 0]

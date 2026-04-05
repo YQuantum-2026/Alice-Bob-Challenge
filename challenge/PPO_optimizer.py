@@ -732,7 +732,7 @@ def _fmt_info(info: dict) -> str:
 
 # ── Entry point ────────────────────────────────────────────────────────────────
 if __name__ == "__main__":
-    N_ITER = 50
+    N_ITER = 30
 
     env = QuantumEnv(
         steps_per_episode = 10,

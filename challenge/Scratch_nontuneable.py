@@ -3,6 +3,7 @@
 import dynamiqs as dq
 import jax.numpy as jnp
 from matplotlib import pyplot as plt
+from pathlib import Path
 
 from jax import vmap, jit
 from cmaes import SepCMA
@@ -14,8 +15,12 @@ from scipy.optimize import least_squares
 def evolve_state(initial_state, tfinal, eps_d_real: float, eps_d_im: float, g2_re: float, g2_im: float):
     na = 15 # Hilbert space dimension
     nb = 5
-    a = dq.tensor(dq.destroy(na), dq.eye(nb)) # annihilaiton operator
-    b = dq.tensor(dq.eye(na), dq.destroy(nb))
+    n_tls = 2  # two-level system (|g>=fock(0), |e>=fock(1))
+
+    # Expand all operators into the 3-mode Hilbert space: storage x buffer x TLS
+    a       = dq.tensor(dq.destroy(na), dq.eye(nb),       dq.eye(n_tls))
+    b       = dq.tensor(dq.eye(na),    dq.destroy(nb),    dq.eye(n_tls))
+    sigma_m = dq.tensor(dq.eye(na),    dq.eye(nb),        dq.destroy(n_tls)) # TLS lowering
 
     kappa_b = 10 # MHz
     eps_d = eps_d_real + 1j*eps_d_im
@@ -26,10 +31,14 @@ def evolve_state(initial_state, tfinal, eps_d_real: float, eps_d_im: float, g2_r
     kappa_2 = 4 * jnp.abs(g_2)**2/kappa_b
     alpha_estimate = jnp.sqrt(2/kappa_2 * (eps_2 - kappa_a/4))
 
-    H = jnp.conj(g_2) * a @ a @ b.dag() + g_2 * a.dag() @ a.dag() @ b - eps_d * b.dag() - jnp.conj(eps_d) * b + 0.8*dq.powm(a.dag()@a, 2)
+    H0 = jnp.conj(g_2) * a @ a @ b.dag() + g_2 * a.dag() @ a.dag() @ b - eps_d * b.dag() - jnp.conj(eps_d) * b + 0.5*a.dag()@a
+    H_tls = .55 * (a @ sigma_m.dag() + a.dag() @ sigma_m)
+    H = H0+H_tls
 
+    gamma_tls = 0.5
     loss_b = jnp.sqrt(kappa_b) * b
     loss_a = jnp.sqrt(kappa_a) * a
+    loss_tls = jnp.sqrt(gamma_tls) * sigma_m   
 
     tsave = jnp.linspace(0, tfinal, 40)
 
@@ -48,11 +57,11 @@ def evolve_state(initial_state, tfinal, eps_d_real: float, eps_d_im: float, g2_r
     sx = (1j * jnp.pi * a.dag() @ a).expm()
     a2 = dq.powm(a,2)
 
-    psi0 = dq.tensor(basis[initial_state], dq.fock(nb,0)) # initial state
+    psi0 = dq.tensor(basis[initial_state], dq.fock(nb, 0), dq.fock(n_tls, 0))
 
     res = dq.mesolve(
         H, 
-        [loss_b, loss_a], 
+        [loss_b, loss_a, loss_tls], 
         psi0, 
         tsave, 
         options=dq.Options(progress_meter=False),
@@ -131,5 +140,7 @@ def compute_vals(eps_d_real: float, eps_d_im: float, g2_re: float, g2_im: float)
     Tx = compute_x_lifetime(ev_res_x)
     return Tz,Tx
 
-print(compute_vals(4,0,1,0))
-
+res = evolve_state("+z",7,4,0,1,0)
+#gif = dq.plot.wigner_gif(dq.ptrace(res.states, 0))
+#output = Path("PleaseBeCorrect.gif")
+#output.write_bytes(gif.data)

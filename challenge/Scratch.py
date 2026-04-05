@@ -6,16 +6,32 @@ from matplotlib import pyplot as plt
 
 from jax import vmap, jit
 from cmaes import SepCMA
+from pathlib import Path
 
 from scipy.optimize import curve_fit
 from scipy.optimize import least_squares
 
 
-def evolve_state(initial_state, tfinal, eps_d_real: float, eps_d_im: float, g2_re: float, g2_im: float, delta_d: float):
+def evolve_state(initial_state, tfinal, eps_d_real: float, eps_d_im: float, g2_re: float, g2_im: float, delta_d: float,
+                 g_tls: float = 0.25, gamma_tls: float = 0.5, gamma_phi: float = 0.0):
+    """
+    Drift parameters:
+      g_tls     - coupling strength to a resonant TLS (MHz). Drives Jaynes-Cummings exchange,
+                  shortening both Tz and Tx. Typical hardware drift: 0 -> ~0.1 MHz.
+      gamma_tls - TLS spontaneous decay rate (MHz). Fast decay (~kappa_b) makes it act like
+                  extra Purcell loss; slow decay causes coherent oscillations.
+      gamma_phi - pure dephasing rate (MHz) on the storage mode, modeling SNR degradation:
+                  more dephasing <-> higher measurement back-action from a noisier readout chain.
+                  Primarily shortens Tx. Typical drift: 0 -> ~0.05 MHz.
+    """
     na = 15 # Hilbert space dimension
     nb = 5
-    a = dq.tensor(dq.destroy(na), dq.eye(nb)) # annihilaiton operator
-    b = dq.tensor(dq.eye(na), dq.destroy(nb))
+    n_tls = 2  # two-level system (|g>=fock(0), |e>=fock(1))
+
+    # Expand all operators into the 3-mode Hilbert space: storage x buffer x TLS
+    a       = dq.tensor(dq.destroy(na), dq.eye(nb),       dq.eye(n_tls))
+    b       = dq.tensor(dq.eye(na),    dq.destroy(nb),    dq.eye(n_tls))
+    sigma_m = dq.tensor(dq.eye(na),    dq.eye(nb),        dq.destroy(n_tls)) # TLS lowering
 
     kappa_b = 10 # MHz
     eps_d = eps_d_real + 1j*eps_d_im
@@ -26,10 +42,23 @@ def evolve_state(initial_state, tfinal, eps_d_real: float, eps_d_im: float, g2_r
     kappa_2 = 4 * jnp.abs(g_2)**2/kappa_b
     alpha_estimate = jnp.sqrt(2/kappa_2 * (eps_2 - kappa_a/4))
 
-    H = jnp.conj(g_2) * a @ a @ b.dag() + g_2 * a.dag() @ a.dag() @ b - eps_d * b.dag() - jnp.conj(eps_d) * b + 0.025*dq.powm(a.dag()@a, 2) + delta_d*a.dag()@a
+    # Base stabilization Hamiltonian (unchanged)
+    H_base = (jnp.conj(g_2) * a @ a @ b.dag()
+              + g_2 * a.dag() @ a.dag() @ b
+              - eps_d * b.dag() - jnp.conj(eps_d) * b
+              + delta_d * (g_2 * a.dag() @ a @ b + jnp.conj(g_2) * a.dag() @ a @ b.dag()))
 
-    loss_b = jnp.sqrt(kappa_b) * b
-    loss_a = jnp.sqrt(kappa_a) * a
+    # Drift 1: Jaynes-Cummings coupling to a resonant TLS
+    # H_tls = g_tls * (a * sigma_+ + a_dag * sigma_-)
+    # Resonant -> no detuning term needed (rotating frame at storage frequency)
+    H_tls = g_tls * (a @ sigma_m.dag() + a.dag() @ sigma_m)
+
+    H = H_base + H_tls
+
+    loss_b   = jnp.sqrt(kappa_b)  * b
+    loss_a   = jnp.sqrt(kappa_a)  * a
+    loss_tls = jnp.sqrt(gamma_tls) * sigma_m          # TLS spontaneous decay
+    loss_phi = jnp.sqrt(gamma_phi) * a.dag() @ a      # Drift 2: pure dephasing (SNR degradation)
 
     tsave = jnp.linspace(0, tfinal, 40)
 
@@ -46,17 +75,18 @@ def evolve_state(initial_state, tfinal, eps_d_real: float, eps_d_im: float, g2_r
     }
 
     sx = (1j * jnp.pi * a.dag() @ a).expm()
-    a2 = dq.powm(a,2)
+    a2 = dq.powm(a, 2)
 
-    psi0 = dq.tensor(basis[initial_state], dq.fock(nb,0)) # initial state
+    # TLS starts in ground state |g> = fock(0)
+    psi0 = dq.tensor(basis[initial_state], dq.fock(nb, 0), dq.fock(n_tls, 0))
 
     res = dq.mesolve(
-        H, 
-        [loss_b, loss_a], 
-        psi0, 
-        tsave, 
+        H,
+        [loss_b, loss_a, loss_tls, loss_phi],
+        psi0,
+        tsave,
         options=dq.Options(progress_meter=False),
-        exp_ops=[sx, a2, a, a.dag(), a.dag()@a]
+        exp_ops=[sx, a2, a, a.dag(), a.dag() @ a]
     )
 
     return res
@@ -124,12 +154,18 @@ def compute_x_lifetime(ev_res):
 
     return Tx
 
-def compute_vals(eps_d_real: float, eps_d_im: float, g2_re: float, g2_im: float, delta_d: float):
-    ev_res_z = evolve_state("+z",50, eps_d_real, eps_d_im, g2_re, g2_im, delta_d)
+def compute_vals(eps_d_real: float, eps_d_im: float, g2_re: float, g2_im: float, delta_d: float,
+                 g_tls: float = 0.5, gamma_tls: float = 0.5, gamma_phi: float = 0.0):
+    ev_res_z = evolve_state("+z", 50, eps_d_real, eps_d_im, g2_re, g2_im, delta_d, g_tls, gamma_tls, gamma_phi)
     Tz = compute_z_lifetime(ev_res_z)
-    ev_res_x = evolve_state("+x",0.25, eps_d_real, eps_d_im, g2_re, g2_im, delta_d)
+    ev_res_x = evolve_state("+x", 0.25, eps_d_real, eps_d_im, g2_re, g2_im, delta_d, g_tls, gamma_tls, gamma_phi)
     Tx = compute_x_lifetime(ev_res_x)
-    return Tz,Tx
+    return Tz, Tx
 
-print(compute_vals(4,0,1,0,-1.0))
+#print(compute_vals(4,0,1,0,-1.0))
+
+#res = evolve_state("+z", 100, 3.2351, 2.1654, 0.8384, -0.6463, -0.2155)
+#gif = dq.plot.wigner_gif(dq.ptrace(res.states, 0))
+#output = Path("Wigner.gif")
+#output.write_bytes(gif.data)
 
