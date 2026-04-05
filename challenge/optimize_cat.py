@@ -14,6 +14,8 @@ Three reward functions available:
 import numpy as np
 import jax.numpy as jnp
 import dynamiqs as dq
+import os
+import time
 from scipy.optimize import least_squares
 from cmaes import SepCMA
 from matplotlib import pyplot as plt
@@ -26,13 +28,18 @@ KAPPA_A = 1.0    # single-photon loss [MHz]
 # ── Objective ────────────────────────────────────────────────
 ETA_TARGET = 500.0  # target bias T_z/T_x (want ~200-999)
 
+# ── Runtime mode ─────────────────────────────────────────────
+# Fast mode is on by default to keep turnaround short.
+# Set CAT_FAST_MODE=0 for full-quality runs.
+FAST_MODE = os.getenv("CAT_FAST_MODE", "1") == "1"
+
 # ── Lifetime clamps ──────────────────────────────────────────
 TX_MAX = 5.0     # us
 TZ_MAX = 2000.0  # us
 
 # ── Simulation tuning ────────────────────────────────────────
-N_POINTS = 50
-TZ_TFINAL = 200.0  # us
+N_POINTS = int(os.getenv("CAT_N_POINTS", "30" if FAST_MODE else "50"))
+TZ_TFINAL = float(os.getenv("CAT_TZ_TFINAL", "100.0" if FAST_MODE else "200.0"))  # us
 TX_TFINAL = 1.0    # us
 
 # ── Precomputed operators ────────────────────────────────────
@@ -180,6 +187,7 @@ def optimize(reward_name="log_quadratic", batch_size=12, n_epochs=60, seed=0):
     history = {"loss": [], "Tx": [], "Tz": [], "eta": [], "params": []}
 
     for epoch in range(n_epochs):
+        t0 = time.time()
         xs = np.array([optimizer.ask() for _ in range(optimizer.population_size)])
 
         losses, txs, tzs, etas = [], [], [], []
@@ -205,13 +213,15 @@ def optimize(reward_name="log_quadratic", batch_size=12, n_epochs=60, seed=0):
         history["Tz"].append(float(np.mean(tzs)))
         history["eta"].append(float(np.mean(etas)))
         history["params"].append(optimizer.mean.copy())
+        epoch_s = time.time() - t0
 
         if epoch % 10 == 0:
             print(
                 f"[{reward_name}] Epoch {epoch:3d} | loss={np.mean(losses):.3f} "
                 f"| Tx={np.mean(txs):.3f} Tz={np.mean(tzs):.1f} "
                 f"| eta={np.mean(etas):.0f} "
-                f"| g2={optimizer.mean[0]:.3f} eps_d={optimizer.mean[1]:.3f}"
+                f"| g2={optimizer.mean[0]:.3f} eps_d={optimizer.mean[1]:.3f} "
+                f"| {epoch_s:.2f}s"
             )
 
     # Final eval on optimizer mean
@@ -270,12 +280,26 @@ if __name__ == "__main__":
     _ = simulate(0.2, 4.0, "+z", 1.0, 10)
     print("Ready.\n")
 
+    default_rewards = [os.getenv("CAT_REWARD", "log_quadratic")] if FAST_MODE else list(REWARD_FUNCTIONS.keys())
+    default_epochs = int(os.getenv("CAT_EPOCHS", "20" if FAST_MODE else "60"))
+    default_batch = int(os.getenv("CAT_BATCH_SIZE", "8" if FAST_MODE else "12"))
+
+    print(
+        f"Mode={'FAST' if FAST_MODE else 'FULL'} | rewards={default_rewards} "
+        f"| epochs={default_epochs} | batch={default_batch} "
+        f"| points={N_POINTS} | Tz_final={TZ_TFINAL}"
+    )
+
     all_results = {}
-    for name in REWARD_FUNCTIONS:
+    for name in default_rewards:
         print(f"\n{'='*60}")
         print(f"Optimizing with reward: {name}")
         print(f"{'='*60}")
-        best, hist, metrics = optimize(reward_name=name, n_epochs=60)
+        best, hist, metrics = optimize(
+            reward_name=name,
+            batch_size=default_batch,
+            n_epochs=default_epochs,
+        )
         all_results[name] = (best, hist, metrics)
 
     plot_results(all_results)
